@@ -1,0 +1,14 @@
+{
+  "name": "ei-to-summary-csv",
+  "version": "0.1.0",
+  "description": "Takes EVTC log and uses EI to turn it into a CSV of the most useful details",
+  "main": "convert.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "hobinjk@gmail.com",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^6.0.1"
+  }
+}
