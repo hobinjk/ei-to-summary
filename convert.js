@@ -13,11 +13,37 @@ function downCount(player) {
 }
 
 function mechanic(log, player, skillName) {
+  if (!log.mechanics) {
+    return 0;
+  }
   const mechanic = log.mechanics.filter(m => m.name === skillName);
   if (mechanic.length === 0) {
     return 0;
   }
   return mechanic[0].mechanicsData.filter(d => d.actor === player.name).length;
+}
+
+function target800kStats(player) {
+  let goal = 800000;
+  let dps = player.targetDamage1S[0][0];
+  for (let i = 0; i < dps.length; i++) {
+    if (dps[i] > goal) {
+      if (i === 0) {
+        return {
+          dps: dps[0],
+          time: 0,
+        };
+      }
+      let m = dps[i] - dps[i - 1];
+      let x0 = i - 1;
+      let y0 = dps[i - 1];
+      let extrapolatedTime = x0 + (goal - y0) / m;
+      return {
+        dps: goal / extrapolatedTime,
+        time: extrapolatedTime,
+      };
+    }
+  }
 }
 
 function targetDps(log, player) {
@@ -31,6 +57,9 @@ function allDps(log, player) {
 }
 
 function squadBuffGeneration(player, buffId) {
+  if (!player.squadBuffs) {
+    return 0;
+  }
   let data = player.squadBuffs.filter(d => d.id === buffId);
   if (data.length === 0) {
     return 0;
@@ -46,13 +75,6 @@ function alacrity(player) {
   return squadBuffGeneration(player, 30328);
 }
 
-// let spec = player.profession;
-// let name = player.name;
-// let targetDps = player.targetDamage1S[0][0].last() / length;
-// let allDps = player.allDamage1S[0][0].last() / length;
-// let quickness = player.squadBuffs where id==1187.buffData[0].generation;
-// let alacrity = player.squadBuffs where id==30328.buffData[0].generation;
-
 function generateJson(logPath) {
   return new Promise((res, rej) => {
     exec(`wine /Users/jhobin/Downloads/GW2EI/GuildWars2EliteInsights.exe -c /Users/jhobin/orange/gw2/gw2-ei-cool.conf "${logPath}"`, (err, stdout, _stderr) => {
@@ -60,8 +82,12 @@ function generateJson(logPath) {
         rej(err);
         return;
       }
-      console.log('stdo', stdout);
-      res();
+      let output = /Complete_([a-zA-Z]+)_/.exec(stdout);
+      if (output) {
+        res(output[1]);
+      } else {
+        res();
+      }
     });
   });
 }
@@ -79,25 +105,51 @@ const _keyToTitle = {
 };
 
 function playerStats(log, player) {
-  return {
+  let base = {
+    account: player.account,
     name: player.name,
     spec: player.profession,
     downs: downCount(player),
     targetDps: targetDps(log, player),
     allDps: allDps(log, player),
+  };
+
+  let quickAlacSupport = {
     quickness: quickness(player),
     alacrity: alacrity(player),
+  };
+  if (quickAlacSupport.quickness > 0 || quickAlacSupport.alacrity > 0) {
+    Object.assign(base, quickAlacSupport);
+  }
+
+  let gorsMechs = {
     slammed: mechanic(log, player, 'Specral Impact'),
     egged: mechanic(log, player, 'Ghastly Prison'),
   };
+  if (log.fightName === 'Gorseval the Multifarious') {
+    Object.assign(base, gorsMechs);
+  }
+
+  if (log.fightName.includes('Golem')) {
+    let golemNonsense = {};
+    let t800kStats = target800kStats(player);
+    if (t800kStats) {
+      golemNonsense.firstNumber = t800kStats.dps;
+      golemNonsense.firstNumberTime = t800kStats.time;
+    }
+    Object.assign(base, golemNonsense);
+  }
+  return base;
 }
 
 async function processLog(rawLogPath) {
+  let boss = 'StdGolem';
   let slug = path.basename(rawLogPath).split('.')[0];
-  console.log('slug', slug);
-  let killJsonPath = path.join(path.dirname(rawLogPath), `${slug}_vg_kill.json`);
-  if (!fs.existsSync(killJsonPath)) {
-    await generateJson(rawLogPath);
+  let killJsonPath = path.join(path.dirname(rawLogPath), `${slug}_${boss}_kill.json`);
+  let failJsonPath = path.join(path.dirname(rawLogPath), `${slug}_${boss}_fail.json`);
+  if (!fs.existsSync(killJsonPath) && !fs.existsSync(failJsonPath)) {
+    let genBoss = await generateJson(rawLogPath);
+    console.log('genBoss', genBoss);
   }
   if (fs.existsSync(killJsonPath)) {
     try {
@@ -108,30 +160,33 @@ async function processLog(rawLogPath) {
     } catch (e) {
       console.log('weell that was not very nice my little sapling', e);
     }
-  } else {
-    console.log('you are bad lol', killJsonPath);
   }
 }
 
 async function processDir(dir) {
-  const paths = fs.readdirSync(dir);
+  const logPaths = fs.readdirSync(dir);
   const benches = [];
-  for (let path of paths) {
-    if (!path.endsWith('.zevtc') && !path.endsWith('.evtc') &&
-        !path.endsWith('.evtc.zip')) {
+  for (let logPath of logPaths) {
+    if (!logPath.endsWith('.zevtc') && !logPath.endsWith('.evtc') &&
+        !logPath.endsWith('.evtc.zip')) {
       continue;
     }
-    console.log(path);
-    let allPlayerStats = await processLog(path);
-    if (allPlayerStats.length === 1) {
-      benches.push(Object.assign({path}, allPlayerStats[0]));
+    console.log(logPath);
+    let allPlayerStats = await processLog(path.join(dir, logPath));
+    allPlayerStats = allPlayerStats || [];
+    console.log(allPlayerStats);
+    for (let player of allPlayerStats) {
+      if (player.account === 'zaraktheblighter.7023') {
+        benches.push(Object.assign({path: logPath}, player));
+      }
     }
   }
   benches.sort((a, b) => {
     return a.targetDps - b.targetDps;
   });
-  console.log(benches);
+  for (let bench of benches) {
+    console.log(bench.targetDps, bench.firstNumber, bench.name, bench.spec, bench.path);
+  }
 }
 
-// processLog(`/Users/jhobin/orange/gw2/arcdps.cbtlogs/Vale Guardian/20190625-221317.zevtc`);
 processDir(`/Users/jhobin/orange/gw2/arcdps.cbtlogs/Standard Kitty Golem`);
