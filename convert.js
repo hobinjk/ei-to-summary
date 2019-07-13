@@ -1,6 +1,7 @@
 const exec = require('child_process').exec;
 const fs = require('fs');
 const path = require('path');
+const mechanics = require('./mechanics');
 
 function durationS(log) {
   return (log.phases[0].end - log.phases[0].start) / 1000;
@@ -10,17 +11,6 @@ function downCount(player) {
   return player.defenses
     .map(defense => defense.downCount)
     .reduce((a, b) => a + b, 0);
-}
-
-function mechanic(log, player, skillName) {
-  if (!log.mechanics) {
-    return 0;
-  }
-  const mechanic = log.mechanics.filter(m => m.name === skillName);
-  if (mechanic.length === 0) {
-    return 0;
-  }
-  return mechanic[0].mechanicsData.filter(d => d.actor === player.name).length;
 }
 
 function target800kStats(player) {
@@ -122,12 +112,8 @@ function playerStats(log, player) {
     Object.assign(base, quickAlacSupport);
   }
 
-  let gorsMechs = {
-    slammed: mechanic(log, player, 'Specral Impact'),
-    egged: mechanic(log, player, 'Ghastly Prison'),
-  };
-  if (log.fightName === 'Gorseval the Multifarious') {
-    Object.assign(base, gorsMechs);
+  if (mechanics.hasOwnProperty(log.fightName)) {
+    base.mechanics = mechanics[log.fightName](log, player);
   }
 
   if (log.fightName.includes('Golem')) {
@@ -185,7 +171,7 @@ async function processDir(dir) {
     return a.targetDps - b.targetDps;
   });
   for (let bench of benches) {
-    console.log(bench.targetDps, bench.firstNumber, bench.name, bench.spec, bench.path);
+    console.log(bench);
   }
 }
 
