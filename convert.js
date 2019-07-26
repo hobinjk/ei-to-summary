@@ -7,12 +7,6 @@ function durationS(log) {
   return (log.phases[0].end - log.phases[0].start) / 1000;
 }
 
-function downCount(player) {
-  return player.defenses
-    .map(defense => defense.downCount)
-    .reduce((a, b) => a + b, 0);
-}
-
 function target800kStats(player) {
   let goal = 800000;
   let dps = player.targetDamage1S[0][0];
@@ -44,6 +38,18 @@ function targetDps(log, player) {
 function allDps(log, player) {
   let dps = player.damage1S[0];
   return dps[dps.length - 1] / durationS(log);
+}
+
+function targetConditionStacks(log, player, conditionId) {
+  let targetBuffs = log.targets[0].buffs;
+  let condData = targetBuffs.filter(buffData => {
+    return buffData.id === conditionId;
+  })[0];
+
+  if (!condData) {
+    return 0;
+  }
+  return condData.buffData[0].generated[player.name];
 }
 
 function squadBuffGeneration(player, buffId) {
@@ -99,7 +105,7 @@ function playerStats(log, player) {
     account: player.account,
     name: player.name,
     spec: player.profession,
-    downs: downCount(player),
+    boss: log.fightName,
     targetDps: targetDps(log, player),
     allDps: allDps(log, player),
   };
@@ -110,6 +116,17 @@ function playerStats(log, player) {
   };
   if (quickAlacSupport.quickness > 0 || quickAlacSupport.alacrity > 0) {
     Object.assign(base, quickAlacSupport);
+  }
+  const condis = {
+    confusion: 861,
+    torment: 19426,
+  };
+  for (const condi in condis) {
+    const id = condis[condi];
+    const stacks = targetConditionStacks(log, player, id);
+    if (stacks > 1) {
+      base[condi] = stacks;
+    }
   }
 
   if (mechanics.hasOwnProperty(log.fightName)) {
@@ -128,14 +145,20 @@ function playerStats(log, player) {
   return base;
 }
 
+let boss = 'StdGolem';
+
+function jsonPath(rawLogPath, slug, result) {
+  return path.join(path.dirname(rawLogPath), `${slug}_${boss}_${result}.json`);
+}
+
 async function processLog(rawLogPath) {
-  let boss = 'StdGolem';
   let slug = path.basename(rawLogPath).split('.')[0];
-  let killJsonPath = path.join(path.dirname(rawLogPath), `${slug}_${boss}_kill.json`);
-  let failJsonPath = path.join(path.dirname(rawLogPath), `${slug}_${boss}_fail.json`);
+  let killJsonPath = jsonPath(rawLogPath, slug, 'kill');
+  let failJsonPath = jsonPath(rawLogPath, slug, 'fail');
   if (!fs.existsSync(killJsonPath) && !fs.existsSync(failJsonPath)) {
     let genBoss = await generateJson(rawLogPath);
-    console.log('genBoss', genBoss);
+    boss = genBoss;
+    killJsonPath = jsonPath(rawLogPath, slug, 'kill');
   }
   if (fs.existsSync(killJsonPath)) {
     try {
