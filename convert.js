@@ -73,7 +73,7 @@ function alacrity(player) {
 
 function generateJson(logPath) {
   return new Promise((res, rej) => {
-    exec(`wine /Users/jhobin/Downloads/GW2EI/GuildWars2EliteInsights.exe -c /Users/jhobin/orange/gw2/gw2-ei-cool.conf "${logPath}"`, (err, stdout, _stderr) => {
+    exec(`wineconsole --backend=curses /Users/jhobin/Downloads/GW2EI/GuildWars2EliteInsights.exe -c /Users/jhobin/orange/gw2/gw2-ei-cool.conf "${logPath}"`, (err, stdout, _stderr) => {
       if (err) {
         rej(err);
         return;
