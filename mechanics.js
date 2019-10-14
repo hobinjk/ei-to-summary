@@ -127,4 +127,52 @@ module.exports = {
     slammed: 'Annihilate',
     oil: 'Rapid Decay',
   }),
+  'Soulless Horror': simpleMechanics({
+    donut: 'Vortex Slash',
+    golemField: 'Soul Rift',
+    scythe: 'Spinning Slash',
+    slices: 'Death Bloom',
+  }),
+  Dhuum: simpleMechanics({
+    messenger: 'Hateful Ephemera',
+    fissured: 'Cull',
+    sucked: 'Cataclysmic Cycle',
+    deathMarked: 'Death Mark',
+  }),
+  'Conjured Amalgamate': simpleMechanics({
+    pulverize: 'Pulverize',
+  }),
+  'Twin Largos': simpleMechanics({
+    waterlogged: 'Waterlogged',
+    vaporRush: 'Vapor Rush',
+    geyser: 'Geyser',
+    bubble: 'Aquatic Detainment',
+    shockwave: 'Sea Swell',
+  }),
+  Qadim: simpleMechanics({
+    fieryDance: 'Fiery Dance',
+    shockwave: 'Fire Wave',
+    hitbox: 'Sea of Flame',
+  }),
+  'Cardinal Adina': simpleMechanics({
+    blindness: 'Radiant Blindness',
+    triangle: 'Perilous Pulse',
+    boulder: 'Boulder Barrage',
+    mines: 'Stalagmites',
+  }),
+  'Cardinal Sabir': simpleMechanics({
+    shockwave: 'Unbridled Tempest',
+    pushed: 'Dynamic Deterrent',
+    arena: 'Fury of the Storm',
+  }),
+  'Qadim the Peerless': simpleMechanics({
+    pushed: 'Force of Retaliation',
+    purpleBar: 'Force of Havoc',
+    shark: 'Chaos Called',
+    magma: 'Residual Impact',
+    rush: 'Battering Blitz',
+    arrow: 'Caustic Chaos',
+    lightning: 'Rain of Chaos',
+    smallLightning: 'Brandstorm Lightning',
+  }),
 };
