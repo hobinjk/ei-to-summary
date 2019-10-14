@@ -1,188 +1,81 @@
-const exec = require('child_process').exec;
-const fs = require('fs');
-const path = require('path');
+const raLogStandards = require('./raLogStandards');
 const mechanics = require('./mechanics');
+const playerStats = require('./playerStats');
+const LogManager = require('./LogManager');
 
-function durationS(log) {
-  return (log.phases[0].end - log.phases[0].start) / 1000;
-}
-
-function target800kStats(player) {
-  let goal = 800000;
-  let dps = player.targetDamage1S[0][0];
-  for (let i = 0; i < dps.length; i++) {
-    if (dps[i] > goal) {
-      if (i === 0) {
-        return {
-          dps: dps[0],
-          time: 0,
-        };
-      }
-      let m = dps[i] - dps[i - 1];
-      let x0 = i - 1;
-      let y0 = dps[i - 1];
-      let extrapolatedTime = x0 + (goal - y0) / m;
-      return {
-        dps: goal / extrapolatedTime,
-        time: extrapolatedTime,
-      };
+function getPlayerStats(log) {
+  const allPlayerStats = log.players.map(player => {
+    const base = playerStats(log, player);
+    if (!mechanics.hasOwnProperty(log.fightName)) {
+      return base;
     }
-  }
-}
 
-function targetDps(log, player) {
-  let dps = player.targetDamage1S[0][0];
-  return dps[dps.length - 1] / durationS(log);
-}
-
-function allDps(log, player) {
-  let dps = player.damage1S[0];
-  return dps[dps.length - 1] / durationS(log);
-}
-
-function targetConditionStacks(log, player, conditionId) {
-  let targetBuffs = log.targets[0].buffs;
-  let condData = targetBuffs.filter(buffData => {
-    return buffData.id === conditionId;
-  })[0];
-
-  if (!condData) {
-    return 0;
-  }
-  return condData.buffData[0].generated[player.name];
-}
-
-function squadBuffGeneration(player, buffId) {
-  if (!player.squadBuffs) {
-    return 0;
-  }
-  let data = player.squadBuffs.filter(d => d.id === buffId);
-  if (data.length === 0) {
-    return 0;
-  }
-  return data[0].buffData[0].generation;
-}
-
-function quickness(player) {
-  return squadBuffGeneration(player, 1187);
-}
-
-function alacrity(player) {
-  return squadBuffGeneration(player, 30328);
-}
-
-function generateJson(logPath) {
-  return new Promise((res, rej) => {
-    exec(`wineconsole --backend=curses /Users/jhobin/Downloads/GW2EI/GuildWars2EliteInsights.exe -c /Users/jhobin/orange/gw2/gw2-ei-cool.conf "${logPath}"`, (err, stdout, _stderr) => {
-      if (err) {
-        rej(err);
-        return;
-      }
-      let output = /Complete_([a-zA-Z]+)_/.exec(stdout);
-      if (output) {
-        res(output[1]);
-      } else {
-        res();
-      }
-    });
-  });
-}
-
-const _keyToTitle = {
-  name: 'Name',
-  spec: 'Spec',
-  downs: 'Downs',
-  targetDps: 'Target DPS',
-  allDps: 'All DPS',
-  quickness: 'Quickness Generation (Squad)',
-  alacrity: 'Alacrity Generation (Squad)',
-  slammed: 'Slammed',
-  egged: 'Egged',
-};
-
-function playerStats(log, player) {
-  let base = {
-    account: player.account,
-    name: player.name,
-    spec: player.profession,
-    boss: log.fightName,
-    targetDps: targetDps(log, player),
-    allDps: allDps(log, player),
-  };
-
-  let quickAlacSupport = {
-    quickness: quickness(player),
-    alacrity: alacrity(player),
-  };
-  if (quickAlacSupport.quickness > 0 || quickAlacSupport.alacrity > 0) {
-    Object.assign(base, quickAlacSupport);
-  }
-  const condis = {
-    confusion: 861,
-    torment: 19426,
-  };
-  for (const condi in condis) {
-    const id = condis[condi];
-    const stacks = targetConditionStacks(log, player, id);
-    if (stacks > 1) {
-      base[condi] = stacks;
-    }
-  }
-
-  if (mechanics.hasOwnProperty(log.fightName)) {
     base.mechanics = mechanics[log.fightName](log, player);
-  }
-
-  if (log.fightName.includes('Golem')) {
-    let golemNonsense = {};
-    let t800kStats = target800kStats(player);
-    if (t800kStats) {
-      golemNonsense.firstNumber = t800kStats.dps;
-      golemNonsense.firstNumberTime = t800kStats.time;
+    const standards = raLogStandards[log.fightName];
+    if (!standards) {
+      return base;
     }
-    Object.assign(base, golemNonsense);
-  }
-  return base;
-}
-
-let boss = 'StdGolem';
-
-function jsonPath(rawLogPath, slug, result) {
-  return path.join(path.dirname(rawLogPath), `${slug}_${boss}_${result}.json`);
-}
-
-async function processLog(rawLogPath) {
-  let slug = path.basename(rawLogPath).split('.')[0];
-  let killJsonPath = jsonPath(rawLogPath, slug, 'kill');
-  let failJsonPath = jsonPath(rawLogPath, slug, 'fail');
-  if (!fs.existsSync(killJsonPath) && !fs.existsSync(failJsonPath)) {
-    let genBoss = await generateJson(rawLogPath);
-    boss = genBoss;
-    killJsonPath = jsonPath(rawLogPath, slug, 'kill');
-  }
-  if (fs.existsSync(killJsonPath)) {
-    try {
-      let log = JSON.parse(fs.readFileSync(killJsonPath));
-      return log.players.map((player) => {
-        return playerStats(log, player);
-      });
-    } catch (e) {
-      console.log('weell that was not very nice my little sapling', e);
+    let report = {};
+    let bad = 0;
+    let questionable = 0;
+    report.overall = ''; // Make summary show up first
+    for (const mechKey in standards) {
+      if (!base.mechanics.hasOwnProperty(mechKey)) {
+        report[mechKey] = 'good';
+        continue;
+      }
+      if (standards[mechKey] === 'low') {
+        if (base.mechanics[mechKey] === 0) {
+          report[mechKey] = 'good';
+          continue;
+        }
+        report[mechKey] = base.mechanics[mechKey] + ' should be low';
+        questionable += 1;
+        continue;
+      }
+      if (standards[mechKey] === 'cool') {
+        report[mechKey] = 'cool';
+        continue;
+      }
+      if (base.mechanics[mechKey] <= standards[mechKey]) {
+        report[mechKey] = 'good';
+      } else {
+        report[mechKey] = 'bad';
+        bad += 1;
+      }
     }
-  }
+    if (bad === 0) {
+      if (questionable === 0) {
+        report.overall = 'pass';
+      } else {
+        report.overall = 'maybe, check that "low" mechanics are actually low';
+      }
+    } else {
+      report.overall = `failed ${bad} mechanic`;
+      if (bad > 1) {
+        report.overall += 's';
+      }
+    }
+
+    base.raReport = report;
+    return base;
+  });
+  return allPlayerStats;
 }
 
 async function processDir(dir) {
-  const logPaths = fs.readdirSync(dir);
   const benches = [];
-  for (let logPath of logPaths) {
-    if (!logPath.endsWith('.zevtc') && !logPath.endsWith('.evtc') &&
-        !logPath.endsWith('.evtc.zip')) {
+  const logPaths = LogManager.gatherLogPaths(dir);
+
+  for (let i = 0; i < logPaths.length; i++) {
+    const logPath = logPaths[i];
+    console.log(Math.floor(i / logPaths.length * 1000) / 10, logPath);
+    const log = await LogManager.processLog(logPath);
+    if (!log) {
       continue;
     }
-    console.log(logPath);
-    let allPlayerStats = await processLog(path.join(dir, logPath));
-    allPlayerStats = allPlayerStats || [];
+
+    const allPlayerStats = getPlayerStats(log);
     console.log(allPlayerStats);
     for (let player of allPlayerStats) {
       if (player.account === 'zaraktheblighter.7023') {
@@ -194,8 +87,11 @@ async function processDir(dir) {
     return a.targetDps - b.targetDps;
   });
   for (let bench of benches) {
+    if (bench.boss.includes('Golem')) {
+      continue;
+    }
     console.log(bench);
   }
 }
 
-processDir(`/Users/jhobin/orange/gw2/arcdps.cbtlogs/Standard Kitty Golem`);
+processDir(`/Users/jhobin/orange/gw2/arcdps.cbtlogs`);
