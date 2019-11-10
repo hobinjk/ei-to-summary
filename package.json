@@ -10,5 +10,8 @@
   "license": "MIT",
   "devDependencies": {
     "eslint": "^6.0.1"
+  },
+  "dependencies": {
+    "yargs": "^14.2.0"
   }
 }

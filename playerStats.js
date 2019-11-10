@@ -25,6 +25,44 @@ function target800kStats(player) {
   }
 }
 
+const tankBosses = [
+  'Vale Guardian',
+  'Gorseval the Multifarious',
+  'Keep Construct',
+  'Xera',
+  // 'Mursaat Overseer' ...it's different
+  // Samarog ...it's also different
+  'Deimos',
+  'Soulless Horror', // it's technically different but no
+  'Dhuum',
+  'Twin Largos',
+  'Qadim', // very different but no
+  'Cardinal Adina',
+  'Cardinal Sabir',
+  'Qadim the Peerless', // different but no
+];
+
+function guessSpec(log, player) {
+  let isHeal = player.healing > 7;
+  let isTank = player.toughness > 8 && tankBosses.includes(log.fightName);
+  let isBoon = quickness(player) > 10 || alacrity(player) > 10;
+  let dpsAll = player.dpsAll[0];
+  let isPower = dpsAll.condiDps <= dpsAll.powerDps;
+  let spec = player.profession;
+  let dType = isPower ? 'Power' : 'Condition';
+
+  if (isHeal) {
+    return `Heal ${spec}`;
+  }
+  if (isTank) {
+    return `Tank ${spec}`;
+  }
+  if (isBoon) {
+    return `${dType} Boon ${spec}`;
+  }
+  return `${dType} ${spec}`;
+}
+
 function targetDps(log, player) {
   let dps = player.targetDamage1S[0][0];
   return dps[dps.length - 1] / durationS(log);
@@ -70,7 +108,8 @@ module.exports = function playerStats(log, player) {
   let base = {
     account: player.account,
     name: player.name,
-    spec: player.profession,
+    prof: player.profession,
+    spec: guessSpec(log, player),
     boss: log.fightName,
     targetDps: targetDps(log, player),
     allDps: allDps(log, player),
@@ -84,7 +123,10 @@ module.exports = function playerStats(log, player) {
     Object.assign(base, quickAlacSupport);
   }
   const condis = {
+    bleeding: 736,
+    burning: 737,
     confusion: 861,
+    poison: 723,
     torment: 19426,
   };
   for (const condi in condis) {

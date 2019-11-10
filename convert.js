@@ -1,7 +1,16 @@
+const argv = require('yargs').argv;
+
 const raLogStandards = require('./raLogStandards');
 const mechanics = require('./mechanics');
 const playerStats = require('./playerStats');
 const LogManager = require('./LogManager');
+
+const showBenchStats = argv.showBenchStats;
+const showMechanicsStats = argv.showMechanicsStats;
+const showCapabilities = argv.showCapabilities;
+const accountName = argv.accountName;
+const firstNumber = argv.firstNumber;
+const logsDir = argv.path;
 
 function getPlayerStats(log) {
   const allPlayerStats = log.players.map(player => {
@@ -67,6 +76,16 @@ async function processDir(dir) {
   const benches = [];
   const logPaths = LogManager.gatherLogPaths(dir);
 
+  let passStats = {
+    all: {
+      account: 'all',
+      total: 0,
+      passes: 0,
+    },
+  };
+
+  let capabilities = {};
+
   for (let i = 0; i < logPaths.length; i++) {
     const logPath = logPaths[i];
     console.log(Math.floor(i / logPaths.length * 1000) / 10, logPath);
@@ -78,20 +97,80 @@ async function processDir(dir) {
     const allPlayerStats = getPlayerStats(log);
     console.log(allPlayerStats);
     for (let player of allPlayerStats) {
-      if (player.account === 'zaraktheblighter.7023') {
-        benches.push(Object.assign({path: logPath}, player));
+      if (accountName && player.account !== accountName) {
+        continue;
+      }
+
+      if (player.raReport) {
+        passStats.all.total += 1;
+        if (!passStats[player.account]) {
+          passStats[player.account] = {
+            account: player.account,
+            passes: 0,
+            total: 0,
+          };
+        }
+
+        passStats[player.account].total += 1;
+        if (player.raReport.overall === 'pass') {
+          passStats[player.account].passes += 1;
+          passStats.all.passes += 1;
+        }
+      }
+
+      benches.push(Object.assign({path: logPath}, player));
+
+      if (!log.fightName.includes('Golem')) {
+        if (!capabilities[player.account]) {
+          capabilities[player.account] = {};
+        }
+        if (!capabilities[player.account][player.spec]) {
+          capabilities[player.account][player.spec] = 0;
+        }
+        capabilities[player.account][player.spec] += 1;
       }
     }
   }
-  benches.sort((a, b) => {
-    return a.targetDps - b.targetDps;
-  });
-  for (let bench of benches) {
-    if (bench.boss.includes('Golem')) {
-      continue;
+  if (showBenchStats) {
+    benches.sort((a, b) => {
+      if (firstNumber) {
+        return a.firstNumber - b.firstNumber;
+      }
+      return a.targetDps - b.targetDps;
+    });
+    for (let bench of benches) {
+      console.log(bench);
     }
-    console.log(bench);
+  }
+  if (showMechanicsStats) {
+    passStats = Object.values(passStats);
+    passStats.sort((b, a) => {
+      return a.passes / a.total - b.passes / b.total;
+    });
+    console.log(passStats);
+  }
+  if (showCapabilities) {
+    console.log(capabilities);
+    const sortedAccounts = Object.keys(capabilities).sort();
+    for (const account of sortedAccounts) {
+      let specs = capabilities[account];
+      let sortedSpecs = Object.keys(specs).sort((a, b) => {
+        let aParts = a.split(' ');
+        let bParts = b.split(' ');
+        let aProf = aParts[aParts.length - 1];
+        let bProf = bParts[bParts.length - 1];
+        if (aProf === bProf) {
+          return a.localeCompare(b);
+        }
+        return aProf.localeCompare(bProf);
+      });
+      let specStrs = [];
+      for (let spec of sortedSpecs) {
+        specStrs.push(`${spec} ${specs[spec]}`);
+      }
+      console.log(`${account}: ${specStrs.join(', ')}`);
+    }
   }
 }
 
-processDir(`/Users/jhobin/orange/gw2/arcdps.cbtlogs`);
+processDir(logsDir);
