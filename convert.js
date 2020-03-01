@@ -4,7 +4,9 @@ const raLogStandards = require('./raLogStandards');
 const mechanics = require('./mechanics');
 const playerStats = require('./playerStats');
 const LogManager = require('./LogManager');
+const {isValidCompForBoss} = require('./bossComps');
 
+const showProgress = argv.showProgress;
 const showBenchStats = argv.showBenchStats;
 const showMechanicsStats = argv.showMechanicsStats;
 const showCapabilities = argv.showCapabilities;
@@ -73,6 +75,7 @@ function getPlayerStats(log) {
 }
 
 async function processDir(dir) {
+  const bannerStats = {};
   const benches = [];
   const logPaths = LogManager.gatherLogPaths(dir);
 
@@ -88,14 +91,21 @@ async function processDir(dir) {
 
   for (let i = 0; i < logPaths.length; i++) {
     const logPath = logPaths[i];
-    console.log(Math.floor(i / logPaths.length * 1000) / 10, logPath);
+    if (showProgress) {
+      console.log(Math.floor(i / logPaths.length * 1000) / 10, logPath);
+    }
     const log = await LogManager.processLog(logPath);
     if (!log) {
       continue;
     }
 
+    if (log.fightName === 'UNKNOWN') {
+      log.fightName = log.targets[0].name;
+    }
+
     const allPlayerStats = getPlayerStats(log);
-    console.log(allPlayerStats);
+    const bossName = log.fightName;
+    const specs = [];
     for (let player of allPlayerStats) {
       if (accountName && player.account !== accountName) {
         continue;
@@ -116,9 +126,15 @@ async function processDir(dir) {
           passStats[player.account].passes += 1;
           passStats.all.passes += 1;
         }
+
+        if (accountName) {
+          console.log(bossName, player.raReport);
+        }
       }
 
       benches.push(Object.assign({path: logPath}, player));
+
+      specs.push(player.spec);
 
       if (!log.fightName.includes('Golem')) {
         if (!capabilities[player.account]) {
@@ -129,6 +145,26 @@ async function processDir(dir) {
         }
         capabilities[player.account][player.spec] += 1;
       }
+    }
+
+    if (showCapabilities) {
+      let validity = isValidCompForBoss(bossName, specs);
+      if (!validity.valid) {
+        console.warn(`Weird comp for ${bossName}`, validity, specs);
+      }
+      let bannery = false;
+      for (let spec of specs) {
+        if (/Warrior|Berserker|Spellbreaker/.test(spec)) {
+          bannery = true;
+        }
+      }
+      if (!bannerStats[bossName]) {
+        bannerStats[bossName] = {
+          true: 0,
+          false: 0,
+        };
+      }
+      bannerStats[bossName][bannery] += 1;
     }
   }
   if (showBenchStats) {
@@ -147,10 +183,12 @@ async function processDir(dir) {
     passStats.sort((b, a) => {
       return a.passes / a.total - b.passes / b.total;
     });
-    console.log(passStats);
+    passStats.forEach((p) => {
+      console.log(p);
+    });
   }
   if (showCapabilities) {
-    console.log(capabilities);
+    const nonTrollSpecs = {};
     const sortedAccounts = Object.keys(capabilities).sort();
     for (const account of sortedAccounts) {
       let specs = capabilities[account];
@@ -166,10 +204,21 @@ async function processDir(dir) {
       });
       let specStrs = [];
       for (let spec of sortedSpecs) {
+        if (nonTrollSpecs.hasOwnProperty(spec)) {
+          nonTrollSpecs[spec] += 1;
+        } else {
+          nonTrollSpecs[spec] = 1;
+        }
         specStrs.push(`${spec} ${specs[spec]}`);
       }
       console.log(`${account}: ${specStrs.join(', ')}`);
     }
+    Object.keys(nonTrollSpecs).sort((a, b) => {
+      return nonTrollSpecs[a] - nonTrollSpecs[b];
+    }).forEach(spec => {
+      console.log(`${spec}: ${nonTrollSpecs[spec]}`);
+    });
+    console.log(bannerStats);
   }
 }
 

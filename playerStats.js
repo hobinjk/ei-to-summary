@@ -43,19 +43,19 @@ const tankBosses = [
 ];
 
 function guessSpec(log, player) {
-  let isHeal = player.healing > 7;
-  let isTank = player.toughness > 8 && tankBosses.includes(log.fightName);
+  let isHeal = player.healing > 4;
+  let isTank = player.toughness > 1 && tankBosses.includes(log.fightName);
   let isBoon = quickness(player) > 10 || alacrity(player) > 10;
   let dpsAll = player.dpsAll[0];
   let isPower = dpsAll.condiDps <= dpsAll.powerDps;
   let spec = player.profession;
   let dType = isPower ? 'Power' : 'Condition';
 
-  if (isHeal) {
-    return `Heal ${spec}`;
-  }
   if (isTank) {
     return `Tank ${spec}`;
+  }
+  if (isHeal) {
+    return `Heal ${spec}`;
   }
   if (isBoon) {
     return `${dType} Boon ${spec}`;
