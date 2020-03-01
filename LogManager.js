@@ -54,11 +54,16 @@ module.exports.processLog = async function(rawLogPath) {
   }
 
   if (!logFound) {
-    let genBoss = await generateJson(rawLogPath);
-    if (genBoss) {
-      boss = genBoss;
+    try {
+      let genBoss = await generateJson(rawLogPath);
+      if (genBoss) {
+        boss = genBoss;
+      }
+      killJsonPath = jsonPath(rawLogPath, slug, 'kill');
+    } catch (e) {
+      console.error('uncaught exception', e);
+      return null;
     }
-    killJsonPath = jsonPath(rawLogPath, slug, 'kill');
   }
   if (fs.existsSync(killJsonPath)) {
     try {
