@@ -5,6 +5,7 @@ const mechanics = require('./mechanics');
 const playerStats = require('./playerStats');
 const LogManager = require('./LogManager');
 const {isValidCompForBoss} = require('./bossComps');
+const PercentilePass = require('./PercentilePass');
 
 const showProgress = argv.showProgress;
 const showBenchStats = argv.showBenchStats;
@@ -105,6 +106,9 @@ async function processDir(dir) {
 
     const allPlayerStats = getPlayerStats(log);
     const bossName = log.fightName;
+
+    PercentilePass.addLog(logPath, log.fightName, allPlayerStats);
+
     const specs = [];
     for (let player of allPlayerStats) {
       if (accountName && player.account !== accountName) {
@@ -167,6 +171,8 @@ async function processDir(dir) {
       bannerStats[bossName][bannery] += 1;
     }
   }
+  PercentilePass.finalize();
+
   if (showBenchStats) {
     benches.sort((a, b) => {
       if (firstNumber) {
