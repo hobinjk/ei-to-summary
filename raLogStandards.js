@@ -65,10 +65,10 @@ const standards = {
   },
   'Twin Largos': {
     waterlogged: 'low',
-    vaporRush: 3,
+    vaporRush: 6, // 3,
     geyser: 1,
-    bubble: 1,
-    shockwave: 2,
+    bubble: 3, // 1,
+    shockwave: 4, // 2,
   },
   Qadim: {
     fieryDance: 'low',
@@ -87,15 +87,26 @@ const standards = {
     arena: 1,
   },
   'Qadim the Peerless': {
-    pushed: 1,
-    purpleBar: 1,
-    shark: 2,
+    pushed: 2,
+    purpleBar: 'low',
+    shark: 3,
     magma: 1,
     rush: 0,
     arrow: 1,
     lightning: 'low',
-    smallLightning: 'low',
+    smallLightning: 3,
   },
+  'Qadim the Peerless CM': {
+    pushed: 2,
+    purpleBar: 'low',
+    shark: 3,
+    magma: 1,
+    rush: 0,
+    arrow: 1,
+    lightning: 'low',
+    smallLightning: 3,
+  },
+
 };
 
 for (let key in standards) {
