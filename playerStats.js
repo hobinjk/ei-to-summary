@@ -44,7 +44,28 @@ const tankBosses = [
 
 function guessSpec(log, player) {
   let isHeal = player.healing > 4;
-  let isTank = player.toughness > 1 && tankBosses.includes(log.fightName);
+  let isTank = false;
+
+  if (tankBosses.includes(log.fightName)) {
+    let isMax = true;
+    let allowedOtherTanks = log.fightName === 'Soulless Horror' ? 1 : 0;
+	  for (let otherPlayer of log.players) {
+	    if (otherPlayer === player) {
+		    continue;
+	    }
+      if (otherPlayer.toughness > player.toughness) {
+        allowedOtherTanks -= 1;
+        if (allowedOtherTanks < 0) {
+          isMax = false;
+          break;
+        }
+      }
+    }
+    if (isMax) {
+      isTank =  true;
+    }
+  }
+
   let isBoon = quickness(player) > 10 || alacrity(player) > 10;
   let dpsAll = player.dpsAll[0];
   let isPower = dpsAll.condiDps <= dpsAll.powerDps;
