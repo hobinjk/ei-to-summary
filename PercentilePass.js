@@ -19,10 +19,12 @@ function addLog(logPath, fightName, allPlayerStats) {
     }
     targetDps[fightName][player.spec].push({
       dps: player.targetDps,
+      account: player.account,
       logPath,
     });
     allDps[fightName][player.spec].push({
       dps: player.allDps,
+      account: player.account,
       logPath,
     });
   }
@@ -33,7 +35,7 @@ function finalize() {
   finalized = true;
   let summary = {};
   for (let fightName in targetDps) {
-    summary[fightName] = {};
+    summary[fightName] = {all: {min: {dps: 99999}, max: {dps: 0}}};
     for (let spec in targetDps[fightName]) {
       targetDps[fightName][spec].sort((a, b) => a.dps - b.dps);
       allDps[fightName][spec].sort((a, b) => a.dps - b.dps);
@@ -42,11 +44,17 @@ function finalize() {
         min: ds[0],
         max: ds[ds.length - 1],
       };
+      if (ds[0].dps < summary[fightName].all.min.dps) {
+        summary[fightName].all.min = ds[0];
+      }
+      if (ds[ds.length - 1].dps > summary[fightName].all.max.dps) {
+        summary[fightName].all.max = ds[ds.length - 1];
+      }
     }
   }
-  console.log('fun info', summary);
-  console.log('funner info',
-              summary['Gorseval the Multifarious']);
+  console.log('fun info', JSON.stringify(summary, null, 2));
+  // console.log('funner info',
+  //             summary['Mursaat Overseer']);
 }
 
 function binarySearch(list, val) {
