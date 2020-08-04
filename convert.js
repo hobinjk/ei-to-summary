@@ -22,11 +22,14 @@ function getPlayerStats(log) {
       return base;
     }
 
+
     base.mechanics = mechanics[log.fightName](log, player);
     const standards = raLogStandards[log.fightName];
     if (!standards) {
       return base;
     }
+    
+    // console.log(log.timeStart, Date.parse(log.timeStart.split(' ')[0]));
     let report = {};
     let bad = 0;
     let questionable = 0;
@@ -132,7 +135,7 @@ async function processDir(dir) {
         }
 
         if (accountName) {
-          console.log(bossName, player.raReport);
+          console.log(bossName, log.timeStart.split(' ')[0].replace(/-/g, ''), player.raReport);
         }
       }
 
